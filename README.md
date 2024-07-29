@@ -1,6 +1,5 @@
 # Extra quality control of Mad4hatter libraries and sequencing runs
 The objective of this script is to visualize the performance of Mad4hatter libraries in a sequencing run.
-# Summary
 # 1. Inputs
 The script needs two inputs for every sequencing run:
 Input 1: Sample Number of Loci with 100 Reads or More per Pool. This table is in the QCplots.html file generated as an output of the Mad4hatter pipeline.
