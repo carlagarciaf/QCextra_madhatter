@@ -20,7 +20,7 @@ library(gridExtra)
 setwd("~/Escritorio/00-GenMoz/03-Data_analysis/QC_EXTRA/MDACD_NX02/")
 
 # Read input files, clean and merge by SampleID
-# Input 1: table of amplicons with >100 reads for every sample from html QC
+# Input 1: Sample Number of Loci with 100 Reads or More per Pool
 ampliok <- read.table("MDACD_NX02_Amplicons.txt", header = TRUE)
 ampliok <- ampliok %>%
   mutate(key = substr(SampleID, 2, 15),
@@ -36,68 +36,66 @@ df1 <- merge(sheet, ampliok, by = "key") %>%
   mutate(Library = as.factor(Library))
 
 #################################################################################################
-# Parasitemia and amplicons with > 100 reads
+# Parasitemia and libraries performance
 #################################################################################################
-# Plotting
-# Geom point
-d1 <- ggplot(df1, aes(x = Parasitemia, y = Pool_all, color = Library)) +
-  geom_point() +
-  labs(color = "Library plate") +
+# Density plots
+# Parasitemia
+d1 <- ggplot(data = df1, aes(x = Parasitemia, color = Library)) +
+  geom_density() +
+  labs(color = "Library plate") +# Change legend title
   theme_light() +
   ggtitle("MDACD_NX02") +
   theme(
-    legend.title = element_text(size = 8),       # Legend title size
-    legend.text = element_text(size = 6),        # Legend text size
-    axis.title = element_text(size = 10),        # Axis titles size
-    axis.text = element_text(size = 8),          # Axis text size
+    legend.title = element_text(size = 8),       
+    legend.text = element_text(size = 6),        
+    axis.title = element_text(size = 10),        
+    axis.text = element_text(size = 8),          
+  )
+# Performance
+d2 <- ggplot(data = df1, aes(x = Pool_all, color = Library)) +
+  geom_density() +
+  labs(color = "Library plate") +# Change legend title
+  theme_light() +
+  xlab("Loci > 100 reads") +
+  theme(
+    legend.title = element_text(size = 8),       
+    legend.text = element_text(size = 6),        
+    axis.title = element_text(size = 10),        
+    axis.text = element_text(size = 8),          
+  )
+# Geom point
+d3 <- ggplot(df1, aes(x = Parasitemia, y = Pool_all, color = Library)) +
+  geom_point() +
+  labs(color = "Library plate") +
+  theme_light() +
+  ylab("Loci >100 reads") +
+  theme(
+    legend.title = element_text(size = 8),       
+    legend.text = element_text(size = 6),        
+    axis.title = element_text(size = 10),        
+    axis.text = element_text(size = 8),          
     plot.title = element_text(size = 10)         # Plot title size
   )
-
 # Boxplot
-d2 <- ggplot(df1, aes(x = Library, y = Pool_all)) +
+d4 <- ggplot(df1, aes(x = Library, y = Pool_all)) +
   geom_boxplot() +
   geom_point(shape=21, position=position_jitter(0.2), aes(fill = Parasitemia), size =1) +
   scale_fill_gradientn(
     colours = colorRampPalette(c('#d64138', '#FBF719', '#5fc435'))(100)
   ) +
-  xlab("Library Plate") +
-  ylab("Amplicons >100 reads") +
+  xlab("Library plate") +
+  ylab("Loci >100 reads") +
   theme_light() +
   theme(
-    legend.title = element_text(size = 8),       # Legend title size
-    legend.text = element_text(size = 6),        # Legend text size
-    axis.title = element_text(size = 10),        # Axis titles size
-    axis.text = element_text(size = 8),          # Axis text size
+    legend.title = element_text(size = 8),       
+    legend.text = element_text(size = 6),        
+    axis.title = element_text(size = 10),        
+    axis.text = element_text(size = 8),          
   )
 
-# Density plots
-# Parasitemia
-d3 <- ggplot(data = df1, aes(x = Parasitemia, color = Library)) +
-  geom_density() +
-  labs(color = "Library plate") +# Change legend title
-  theme_light() +
-  theme(
-    legend.title = element_text(size = 8),       # Legend title size
-    legend.text = element_text(size = 6),        # Legend text size
-    axis.title = element_text(size = 10),        # Axis titles size
-    axis.text = element_text(size = 8),          # Axis text size
-  )
-# Amplicons >100 reads
-d4 <- ggplot(data = df1, aes(x = Pool_all, color = Library)) +
-  geom_density() +
-  labs(color = "Library plate") +# Change legend title
-  theme_light() +
-  xlab("Amplicons > 100 reads") +
-  theme(
-    legend.title = element_text(size = 8),       # Legend title size
-    legend.text = element_text(size = 6),        # Legend text size
-    axis.title = element_text(size = 10),        # Axis titles size
-    axis.text = element_text(size = 8),          # Axis text size
-  )
-
+# Export and combine plots in a PDF
 d5 <- grid.arrange(d1, d2, d3, d4, nrow = 2, ncol =2)
-# Modify PDF output file name
-ggsave(filename = "MDACD_NX02_Parasitemia_Ampliok.pdf", plot = d5, width = 10, height = 10)
+ggsave(filename = "MDACD_NX02_parasitemia_performance.pdf", plot = d5, width = 10, height = 10)
 
 #################################################################################################
 # Heatmaps in 96 well plates
@@ -113,35 +111,22 @@ extract_letters <- function(x) {
 extract_numbers <- function(x) {
   str_extract(x, "\\d+")
 }
+# Extract letters and numbers from Well column
 df3 <- df2 %>%
   mutate(
-    Row = extract_letters(Well),
-    Column = extract_numbers(Well)
+    Row = as.factor(extract_letters(Well)),
+    Column = as.factor(extract_numbers(Well))
   )
-
-df3$Row <- as.factor(df3$Row)
-df3$Column <- factor(df3$Column, levels=c("1", "2", "3", "4", "5", "6", "7", "8", "9","10", "11", "12"))
-
-# Define la función
+# Function to extract subsets of library experiments from the sequencing run
 crear_subsets <- function(data, columna, sufijo) {
-  # Obtener los valores únicos de la columna
   valores_unicos <- unique(data[[columna]])
-  # Iterar sobre cada valor único
   for (valor in valores_unicos) {
-    # Crear el nombre del subset usando el valor y el sufijo
     subset_name <- paste0(valor, "_", sufijo)
-    
-    # Filtrar el dataframe por el valor actual
     subset_data <- subset(data, data[[columna]] == valor)
-    
-    # Asignar el subset a una variable con el nombre creado
     assign(subset_name, subset_data, envir = .GlobalEnv)
   }
 }
-
-# Heatmaps
-# Modify lib_plate value for every library plate in the run
-# Run the function for every library
+# Function to plot heatmap of performance in the plate
 heatmap_data <- function(data, title, low_color, high_color) {
   ggplot(data, aes(x = Column, y = Row, fill = POkAmp)) +
     geom_tile(color = "black", lwd = 0.2, linetype = 1) +
@@ -158,7 +143,7 @@ heatmap_data <- function(data, title, low_color, high_color) {
       plot.title = element_text(size = 10)
     )
 }
-
+# Run heatmap_data function for every library plate/experiment
 lib_plate <- "4"
 Lib <- df3[df3$Library %in% lib_plate,]
 crear_subsets(Lib, "Primer_pools", lib_plate)
@@ -169,7 +154,7 @@ p4 <- heatmap_data(Pool_2_4, "Pool2", "darkorange4", "darkorange")
 # Save every plot in a different object (p5, p6, p7, p8...)
 p8 <- grid.arrange(p1, p2, p3, p4, nrow = 2, ncol =2)
 # Export as a PDF file
-#ggsave(filename = "MDACD_NX02_LIB04_PLATE.pdf", plot = p5, width = 10, height = 10)
+ggsave(filename = "MDACD_NX02_Heatmap_LIB04.pdf", plot = p8, width = 10, height = 10)
 
 #########################################################################################
 # COMBINE AND EXPORT ALL PLOTS #
